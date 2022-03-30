@@ -35,8 +35,12 @@ prove (secp256k1_context * ctx, unsigned long value, secp256k1_pedersen_commitme
     }
 
     unsigned char blind [32] = { 0 };
-    memset(blind, 0x77, 32);
+    unsigned char r = randomnumber();
+    memset(blind, r, 32);
+
     unsigned char nonce [32] = { 0 };
+    r = randomnumber();
+    memset(nonce, r, 32);
 
     signed res = secp256k1_pedersen_commit(ctx, commitment, blind, value, secp256k1_generator_h);
     if ( res != 1 ) {
@@ -130,7 +134,7 @@ main (void) {
         goto cleanup;
     }
 
-    printf("proof created!\nverifying proof\n");
+    printf("proof created! (%zu bytes large)\nverifying proof\n", prooflen);
 
     res = verify(ctx, &commitment, proof, prooflen);
     if ( res != EXIT_SUCCESS ) {
