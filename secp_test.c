@@ -126,7 +126,7 @@ main (void) {
 
     unsigned long someval = randomnumber() % UINT_MAX;
 
-    printf("proving that 0 <= %lu < %zu\n", someval, UINT_MAX);
+    printf("proving that 0 <= %lu < %u\n", someval, UINT_MAX);
 
     secp256k1_pedersen_commitment commitment;
     signed res = prove(ctx, someval, &commitment, proof, &prooflen);
@@ -146,4 +146,3 @@ main (void) {
     cleanup:
         secp256k1_context_destroy(ctx);
 }
-
