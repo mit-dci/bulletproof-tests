@@ -1,5 +1,5 @@
-INCDIR = ../../bulletproofs/elements/include
-LIBDIR = ../../bulletproofs/elements/.libs
+INCDIR = secp256k1-zkp/include
+LIBDIR = secp256k1-zkp/.libs
 CFLAGS = -O0 -ggdb -g 
 LDFLAGS = -L $(LIBDIR) -I $(INCDIR) -lsecp256k1
 

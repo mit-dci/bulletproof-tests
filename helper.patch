@@ -1,0 +1,74 @@
+diff --git a/include/secp256k1_generator.h b/include/secp256k1_generator.h
+index 5479fc8..bbf493c 100644
+--- a/include/secp256k1_generator.h
++++ b/include/secp256k1_generator.h
+@@ -26,6 +26,16 @@ typedef struct {
+  */
+ SECP256K1_API extern const secp256k1_generator *secp256k1_generator_h;
+ 
++/** Reinterpret a generator as a public key
++ *
++ *  In:     gen:    a pointer to a generator
++ *  Out:    key:    a pointer to a public key
++ */
++SECP256K1_API void secp256k1_generator_as_key(
++    secp256k1_generator* gen,
++    secp256k1_pubkey* key
++) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2);
++
+ /** Parse a 33-byte generator byte sequence into a generator object.
+  *
+  *  Returns: 1 if input contains a valid generator.
+@@ -104,6 +114,16 @@ typedef struct {
+     unsigned char data[64];
+ } secp256k1_pedersen_commitment;
+ 
++/** Reinterpret a pedersen commitment as a public key
++ *
++ *  In:     comm:   a pointer to a pedersen commitment
++ *  Out:    key:    a pointer to a public key
++ */
++SECP256K1_API void secp256k1_pedersen_commitment_as_key(
++    secp256k1_pedersen_commitment* comm,
++    secp256k1_pubkey* key
++) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2);
++
+ /** Parse a 33-byte commitment into a commitment object.
+  *
+  *  Returns: 1 if input contains a valid commitment.
+diff --git a/src/modules/generator/main_impl.h b/src/modules/generator/main_impl.h
+index 544d8fe..26494a4 100644
+--- a/src/modules/generator/main_impl.h
++++ b/src/modules/generator/main_impl.h
+@@ -55,6 +55,15 @@ static void secp256k1_generator_save(secp256k1_generator *gen, secp256k1_ge* ge)
+     secp256k1_fe_get_b32(&gen->data[32], &ge->y);
+ }
+ 
++void secp256k1_generator_as_key(secp256k1_generator* gen, secp256k1_pubkey* key) {
++    VERIFY_CHECK(gen != NULL);
++    VERIFY_CHECK(key != NULL);
++
++    secp256k1_ge ge;
++    secp256k1_generator_save(gen, &ge);
++    secp256k1_pubkey_save(key, &ge);
++}
++
+ int secp256k1_generator_parse(const secp256k1_context* ctx, secp256k1_generator* gen, const unsigned char *input) {
+     secp256k1_fe x;
+     secp256k1_ge ge;
+@@ -258,6 +267,15 @@ static void secp256k1_pedersen_commitment_save(secp256k1_pedersen_commitment* co
+     commit->data[0] = 9 ^ secp256k1_fe_is_quad_var(&ge->y);
+ }
+ 
++void secp256k1_pedersen_commitment_as_key(secp256k1_pedersen_commitment* comm, secp256k1_pubkey* key) {
++    VERIFY_CHECK(comm != NULL);
++    VERIFY_CHECK(key != NULL);
++
++    secp256k1_ge ge;
++    secp256k1_pedersen_commitment_save(comm, &ge);
++    secp256k1_pubkey_save(key, &ge);
++}
++
+ int secp256k1_pedersen_commitment_parse(const secp256k1_context* ctx, secp256k1_pedersen_commitment* commit, const unsigned char *input) {
+     secp256k1_fe x;
+     secp256k1_ge ge;
