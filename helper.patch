@@ -232,3 +232,22 @@ index fb34981..db293f7 100644
          free(ctx);
          return NULL;
      }
+diff --git a/src/tests.c b/src/tests.c
+index 55bd9ba..205cca1 100644
+--- a/src/tests.c
++++ b/src/tests.c
+@@ -212,10 +212,10 @@ void run_context_tests(int use_prealloc) {
+         CHECK(sign_prealloc != NULL);
+         CHECK(vrfy_prealloc != NULL);
+         CHECK(both_prealloc != NULL);
+-        none = secp256k1_context_preallocated_create(none_prealloc, SECP256K1_CONTEXT_NONE);
+-        sign = secp256k1_context_preallocated_create(sign_prealloc, SECP256K1_CONTEXT_SIGN);
+-        vrfy = secp256k1_context_preallocated_create(vrfy_prealloc, SECP256K1_CONTEXT_VERIFY);
+-        both = secp256k1_context_preallocated_create(both_prealloc, SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
++        none = secp256k1_context_preallocated_create(none_prealloc, SECP256K1_CONTEXT_NONE, NULL);
++        sign = secp256k1_context_preallocated_create(sign_prealloc, SECP256K1_CONTEXT_SIGN, NULL);
++        vrfy = secp256k1_context_preallocated_create(vrfy_prealloc, SECP256K1_CONTEXT_VERIFY, NULL);
++        both = secp256k1_context_preallocated_create(both_prealloc, SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY, NULL);
+     } else {
+         none = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
+         sign = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
