@@ -1,11 +1,20 @@
 diff --git a/include/secp256k1_generator.h b/include/secp256k1_generator.h
-index 5479fc8..bbf493c 100644
+index 5479fc8..8ef920d 100644
 --- a/include/secp256k1_generator.h
 +++ b/include/secp256k1_generator.h
-@@ -26,6 +26,16 @@ typedef struct {
+@@ -26,6 +26,25 @@ typedef struct {
   */
  SECP256K1_API extern const secp256k1_generator *secp256k1_generator_h;
  
++SECP256K1_API void secp256k1_generator_load_g(
++    secp256k1_generator* gen
++) SECP256K1_ARG_NONNULL(1);
++
++SECP256K1_API SECP256K1_WARN_UNUSED_RESULT secp256k1_context* secp256k1_context_create_ge(
++    unsigned int flags,
++    const secp256k1_generator* gen_override
++) SECP256K1_ARG_NONNULL(2);
++
 +/** Reinterpret a generator as a public key
 + *
 + *  In:     gen:    a pointer to a generator
@@ -19,7 +28,7 @@ index 5479fc8..bbf493c 100644
  /** Parse a 33-byte generator byte sequence into a generator object.
   *
   *  Returns: 1 if input contains a valid generator.
-@@ -104,6 +114,16 @@ typedef struct {
+@@ -104,6 +123,16 @@ typedef struct {
      unsigned char data[64];
  } secp256k1_pedersen_commitment;
  
@@ -36,14 +45,122 @@ index 5479fc8..bbf493c 100644
  /** Parse a 33-byte commitment into a commitment object.
   *
   *  Returns: 1 if input contains a valid commitment.
+diff --git a/include/secp256k1_preallocated.h b/include/secp256k1_preallocated.h
+index a9ae15d..9ac2f27 100644
+--- a/include/secp256k1_preallocated.h
++++ b/include/secp256k1_preallocated.h
+@@ -2,6 +2,7 @@
+ #define SECP256K1_PREALLOCATED_H
+ 
+ #include "secp256k1.h"
++#include "secp256k1_generator.h"
+ 
+ #ifdef __cplusplus
+ extern "C" {
+@@ -53,17 +54,19 @@ SECP256K1_API size_t secp256k1_context_preallocated_size(
+  *  from it) should not be used during the lifetime of the context object.
+  *
+  *  Returns: a newly created context object.
+- *  In:      prealloc: a pointer to a rewritable contiguous block of memory of
+- *                     size at least secp256k1_context_preallocated_size(flags)
+- *                     bytes, as detailed above (cannot be NULL)
+- *           flags:    which parts of the context to initialize.
++ *  Args:    gen_override:  a generator to use for EC multiplication
++ *  In:      prealloc:      a pointer to a rewritable contiguous block of memory of
++ *                          size at least secp256k1_context_preallocated_size(flags)
++ *                          bytes, as detailed above (cannot be NULL)
++ *           flags:         which parts of the context to initialize.
+  *
+  *  See also secp256k1_context_randomize (in secp256k1.h)
+  *  and secp256k1_context_preallocated_destroy.
+  */
+ SECP256K1_API secp256k1_context* secp256k1_context_preallocated_create(
+     void* prealloc,
+-    unsigned int flags
++    unsigned int flags,
++    const secp256k1_generator* gen_override
+ ) SECP256K1_ARG_NONNULL(1) SECP256K1_WARN_UNUSED_RESULT;
+ 
+ /** Determine the memory size of a secp256k1 context object to be copied into
+diff --git a/src/ecmult.h b/src/ecmult.h
+index 7aa394a..33baa2a 100644
+--- a/src/ecmult.h
++++ b/src/ecmult.h
+@@ -20,7 +20,7 @@ typedef struct {
+ 
+ static const size_t SECP256K1_ECMULT_CONTEXT_PREALLOCATED_SIZE;
+ static void secp256k1_ecmult_context_init(secp256k1_ecmult_context *ctx);
+-static void secp256k1_ecmult_context_build(secp256k1_ecmult_context *ctx, void **prealloc);
++static void secp256k1_ecmult_context_build(secp256k1_ecmult_context *ctx, void **prealloc, const secp256k1_ge* gen_override);
+ static void secp256k1_ecmult_context_finalize_memcpy(secp256k1_ecmult_context *dst, const secp256k1_ecmult_context *src);
+ static void secp256k1_ecmult_context_clear(secp256k1_ecmult_context *ctx);
+ static int secp256k1_ecmult_context_is_built(const secp256k1_ecmult_context *ctx);
+diff --git a/src/ecmult_impl.h b/src/ecmult_impl.h
+index 5c2edac..5dad45d 100644
+--- a/src/ecmult_impl.h
++++ b/src/ecmult_impl.h
+@@ -309,7 +309,7 @@ static void secp256k1_ecmult_context_init(secp256k1_ecmult_context *ctx) {
+     ctx->pre_g_128 = NULL;
+ }
+ 
+-static void secp256k1_ecmult_context_build(secp256k1_ecmult_context *ctx, void **prealloc) {
++static void secp256k1_ecmult_context_build(secp256k1_ecmult_context *ctx, void **prealloc, const secp256k1_ge* gen_override) {
+     secp256k1_gej gj;
+     void* const base = *prealloc;
+     size_t const prealloc_size = SECP256K1_ECMULT_CONTEXT_PREALLOCATED_SIZE;
+@@ -318,8 +318,10 @@ static void secp256k1_ecmult_context_build(secp256k1_ecmult_context *ctx, void *
+         return;
+     }
+ 
++    const secp256k1_ge* gen = gen_override ? gen_override : &secp256k1_ge_const_g;
++
+     /* get the generator */
+-    secp256k1_gej_set_ge(&gj, &secp256k1_ge_const_g);
++    secp256k1_gej_set_ge(&gj, gen);
+ 
+     {
+         size_t size = sizeof((*ctx->pre_g)[0]) * ((size_t)ECMULT_TABLE_SIZE(WINDOW_G));
 diff --git a/src/modules/generator/main_impl.h b/src/modules/generator/main_impl.h
-index 544d8fe..26494a4 100644
+index 544d8fe..4b6c5a2 100644
 --- a/src/modules/generator/main_impl.h
 +++ b/src/modules/generator/main_impl.h
-@@ -55,6 +55,15 @@ static void secp256k1_generator_save(secp256k1_generator *gen, secp256k1_ge* ge)
+@@ -36,7 +36,6 @@ static const secp256k1_generator secp256k1_generator_h_internal = {{
+ 
+ const secp256k1_generator *secp256k1_generator_h = &secp256k1_generator_h_internal;
+ 
+-
+ static void secp256k1_generator_load(secp256k1_ge* ge, const secp256k1_generator* gen) {
+     int succeed;
+     succeed = secp256k1_fe_set_b32(&ge->x, &gen->data[0]);
+@@ -47,6 +46,13 @@ static void secp256k1_generator_load(secp256k1_ge* ge, const secp256k1_generator
+     (void) succeed;
+ }
+ 
++void secp256k1_generator_load_g(secp256k1_generator* gen) {
++    VERIFY_CHECK(gen != NULL);
++
++    secp256k1_ge ge = secp256k1_ge_const_g;
++    secp256k1_generator_load(&ge, gen);
++}
++
+ static void secp256k1_generator_save(secp256k1_generator *gen, secp256k1_ge* ge) {
+     VERIFY_CHECK(!secp256k1_ge_is_infinity(ge));
+     secp256k1_fe_normalize_var(&ge->x);
+@@ -55,6 +61,26 @@ static void secp256k1_generator_save(secp256k1_generator *gen, secp256k1_ge* ge)
      secp256k1_fe_get_b32(&gen->data[32], &ge->y);
  }
  
++secp256k1_context* secp256k1_context_create_ge(unsigned int flags, const secp256k1_generator* gen_override) {
++    size_t const prealloc_size = secp256k1_context_preallocated_size(flags);
++    secp256k1_context* ctx = (secp256k1_context*)checked_malloc(&default_error_callback, prealloc_size);
++    if (EXPECT(secp256k1_context_preallocated_create(ctx, flags, gen_override) == NULL, 0)) {
++        free(ctx);
++        return NULL;
++    }
++
++    return ctx;
++}
++
 +void secp256k1_generator_as_key(secp256k1_generator* gen, secp256k1_pubkey* key) {
 +    VERIFY_CHECK(gen != NULL);
 +    VERIFY_CHECK(key != NULL);
@@ -56,7 +173,7 @@ index 544d8fe..26494a4 100644
  int secp256k1_generator_parse(const secp256k1_context* ctx, secp256k1_generator* gen, const unsigned char *input) {
      secp256k1_fe x;
      secp256k1_ge ge;
-@@ -258,6 +267,15 @@ static void secp256k1_pedersen_commitment_save(secp256k1_pedersen_commitment* co
+@@ -258,6 +284,15 @@ static void secp256k1_pedersen_commitment_save(secp256k1_pedersen_commitment* co
      commit->data[0] = 9 ^ secp256k1_fe_is_quad_var(&ge->y);
  }
  
@@ -72,3 +189,46 @@ index 544d8fe..26494a4 100644
  int secp256k1_pedersen_commitment_parse(const secp256k1_context* ctx, secp256k1_pedersen_commitment* commit, const unsigned char *input) {
      secp256k1_fe x;
      secp256k1_ge ge;
+diff --git a/src/secp256k1.c b/src/secp256k1.c
+index fb34981..db293f7 100644
+--- a/src/secp256k1.c
++++ b/src/secp256k1.c
+@@ -137,10 +137,11 @@ size_t secp256k1_context_preallocated_clone_size(const secp256k1_context* ctx) {
+     return ret;
+ }
+ 
+-secp256k1_context* secp256k1_context_preallocated_create(void* prealloc, unsigned int flags) {
++secp256k1_context* secp256k1_context_preallocated_create(void* prealloc, unsigned int flags, const secp256k1_generator* gen_override) {
+     void* const base = prealloc;
+     size_t prealloc_size;
+     secp256k1_context* ret;
++    secp256k1_ge gen;
+ 
+     if (!secp256k1_selftest()) {
+         secp256k1_callback_call(&default_error_callback, "self test failed");
+@@ -164,7 +165,15 @@ secp256k1_context* secp256k1_context_preallocated_create(void* prealloc, unsigne
+         secp256k1_ecmult_gen_context_build(&ret->ecmult_gen_ctx, &prealloc);
+     }
+     if (flags & SECP256K1_FLAGS_BIT_CONTEXT_VERIFY) {
+-        secp256k1_ecmult_context_build(&ret->ecmult_ctx, &prealloc);
++        if (gen_override) {
++            secp256k1_generator g = *gen_override;
++            secp256k1_fe_normalize_var(&gen.x);
++            secp256k1_fe_normalize_var(&gen.y);
++            secp256k1_fe_get_b32(&g.data[0], &gen.x);
++            secp256k1_fe_get_b32(&g.data[32], &gen.y);
++            secp256k1_ecmult_context_build(&ret->ecmult_ctx, &prealloc, &gen);
++        }
++        secp256k1_ecmult_context_build(&ret->ecmult_ctx, &prealloc, NULL);
+     }
+     ret->declassify = !!(flags & SECP256K1_FLAGS_BIT_CONTEXT_DECLASSIFY);
+ 
+@@ -174,7 +183,7 @@ secp256k1_context* secp256k1_context_preallocated_create(void* prealloc, unsigne
+ secp256k1_context* secp256k1_context_create(unsigned int flags) {
+     size_t const prealloc_size = secp256k1_context_preallocated_size(flags);
+     secp256k1_context* ctx = (secp256k1_context*)checked_malloc(&default_error_callback, prealloc_size);
+-    if (EXPECT(secp256k1_context_preallocated_create(ctx, flags) == NULL, 0)) {
++    if (EXPECT(secp256k1_context_preallocated_create(ctx, flags, NULL) == NULL, 0)) {
+         free(ctx);
+         return NULL;
+     }
