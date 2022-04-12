@@ -2,22 +2,33 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <string.h>
+#include <assert.h>
 
 #include "secp256k1.h"
 #include "secp256k1_bulletproofs.h"
 
-unsigned long
-randomnumber() {
-    
+signed
+randombytes (void * buf, size_t bytes) {
+
+    if ( !buf ) {
+        return 0;
+    }
+
     FILE * f = fopen("/dev/urandom", "r");
     if ( !f ) {
         return 0;
     }
 
-    unsigned long l = 0;
-    fread(&l, 1, sizeof l, f);
+    fread(buf, bytes, sizeof(unsigned char), f);
     fclose(f);
+    return 1;
+}
 
+unsigned long
+randomnumber() {
+
+    unsigned long l = 0;
+    assert(randombytes(&l, sizeof l));
     return l;
 }
 
@@ -35,12 +46,10 @@ prove (secp256k1_context * ctx, unsigned long value, secp256k1_pedersen_commitme
     }
 
     unsigned char blind [32] = { 0 };
-    unsigned char r = randomnumber();
-    memset(blind, r, 32);
+    randombytes(blind, 32);
 
     unsigned char nonce [32] = { 0 };
-    r = randomnumber();
-    memset(nonce, r, 32);
+    randombytes(nonce, 32);
 
     signed res = secp256k1_pedersen_commit(ctx, commitment, blind, value, secp256k1_generator_h);
     if ( res != 1 ) {
