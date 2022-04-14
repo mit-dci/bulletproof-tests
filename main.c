@@ -1,35 +1,33 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <limits.h>
-#include <string.h>
-#include <assert.h>
-
-#include "secp256k1.h"
-#include "secp256k1_bulletproofs.h"
+#include "main.h"
 
 signed
-randombytes (void * buf, size_t bytes) {
+main (void) {
 
-    if ( !buf ) {
-        return 0;
+    secp256k1_context * ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+    unsigned char proof [SECP256K1_BULLETPROOFS_RANGEPROOF_UNCOMPRESSED_MAX_LENGTH_];
+    size_t prooflen = SECP256K1_BULLETPROOFS_RANGEPROOF_UNCOMPRESSED_MAX_LENGTH_;
+
+    unsigned long someval = randomnumber() % UINT_MAX;
+
+    printf("proving that 0 <= %lu < %u\n", someval, UINT_MAX);
+
+    secp256k1_pedersen_commitment commitment;
+    signed res = prove(ctx, someval, &commitment, proof, &prooflen);
+    if ( res != EXIT_SUCCESS ) {
+        goto cleanup;
     }
 
-    FILE * f = fopen("/dev/urandom", "r");
-    if ( !f ) {
-        return 0;
+    printf("proof created! (%zu bytes large)\nverifying proof\n", prooflen);
+
+    res = verify(ctx, &commitment, proof, prooflen);
+    if ( res != EXIT_SUCCESS ) {
+        goto cleanup;
     }
 
-    fread(buf, bytes, sizeof(unsigned char), f);
-    fclose(f);
-    return 1;
-}
+    printf("verified!\n");
 
-unsigned long
-randomnumber() {
-
-    unsigned long l = 0;
-    assert(randombytes(&l, sizeof l));
-    return l;
+    cleanup:
+        secp256k1_context_destroy(ctx);
 }
 
 signed
@@ -127,31 +125,27 @@ verify (secp256k1_context * ctx, secp256k1_pedersen_commitment * commitment, uns
 }
 
 signed
-main (void) {
+randombytes (void * buf, size_t bytes) {
 
-    secp256k1_context * ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
-    unsigned char proof [SECP256K1_BULLETPROOFS_RANGEPROOF_UNCOMPRESSED_MAX_LENGTH_];
-    size_t prooflen = SECP256K1_BULLETPROOFS_RANGEPROOF_UNCOMPRESSED_MAX_LENGTH_;
-
-    unsigned long someval = randomnumber() % UINT_MAX;
-
-    printf("proving that 0 <= %lu < %u\n", someval, UINT_MAX);
-
-    secp256k1_pedersen_commitment commitment;
-    signed res = prove(ctx, someval, &commitment, proof, &prooflen);
-    if ( res != EXIT_SUCCESS ) {
-        goto cleanup;
+    if ( !buf ) {
+        return 0;
     }
 
-    printf("proof created! (%zu bytes large)\nverifying proof\n", prooflen);
-
-    res = verify(ctx, &commitment, proof, prooflen);
-    if ( res != EXIT_SUCCESS ) {
-        goto cleanup;
+    FILE * f = fopen("/dev/urandom", "r");
+    if ( !f ) {
+        return 0;
     }
 
-    printf("verified!\n");
-
-    cleanup:
-        secp256k1_context_destroy(ctx);
+    fread(buf, bytes, sizeof(unsigned char), f);
+    fclose(f);
+    return 1;
 }
+
+unsigned long
+randomnumber() {
+
+    unsigned long l = 0;
+    assert(randombytes(&l, sizeof l));
+    return l;
+}
+

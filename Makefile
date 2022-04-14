@@ -13,10 +13,10 @@ all: run
 
 secp256k1-zkp:
 	git clone "https://github.com/apoelstra/secp256k1-zkp"
-	(pushd "$@"; git checkout -b bulletproofs 'origin/2020-11--bulletproofs1-uncompressed')
+	(cd "$@"; git checkout -b bulletproofs 'origin/2020-11--bulletproofs1-uncompressed')
 
 lib: secp256k1-zkp
-	(pushd secp256k1-zkp; \
+	(cd secp256k1-zkp; \
 		git restore .; \
 		git apply ../helper.patch; \
 		./autogen.sh; \
