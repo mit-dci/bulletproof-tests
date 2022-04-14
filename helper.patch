@@ -121,7 +121,7 @@ index 5c2edac..5dad45d 100644
      {
          size_t size = sizeof((*ctx->pre_g)[0]) * ((size_t)ECMULT_TABLE_SIZE(WINDOW_G));
 diff --git a/src/modules/generator/main_impl.h b/src/modules/generator/main_impl.h
-index 544d8fe..4b6c5a2 100644
+index 544d8fe..528aaa4 100644
 --- a/src/modules/generator/main_impl.h
 +++ b/src/modules/generator/main_impl.h
 @@ -36,7 +36,6 @@ static const secp256k1_generator secp256k1_generator_h_internal = {{
@@ -166,7 +166,7 @@ index 544d8fe..4b6c5a2 100644
 +    VERIFY_CHECK(key != NULL);
 +
 +    secp256k1_ge ge;
-+    secp256k1_generator_save(gen, &ge);
++    secp256k1_generator_load(&ge, gen);
 +    secp256k1_pubkey_save(key, &ge);
 +}
 +

@@ -4,9 +4,46 @@ signed
 main (void) {
 
     secp256k1_context * ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
-    proof_roundtrip(ctx);
+
+    keyderivation_doublecheck(ctx);
+
     cleanup:
         secp256k1_context_destroy(ctx);
+}
+
+void
+keyderivation_doublecheck (secp256k1_context * ctx) {
+    unsigned char rprime [32] = { 0 };
+    randombytes(rprime, sizeof rprime);
+
+    unsigned char esk [32] = { 0 };
+    randombytes(esk, sizeof esk);
+
+    secp256k1_ec_seckey_negate(ctx, rprime);
+    secp256k1_ec_seckey_tweak_add(ctx, esk, rprime);
+
+    secp256k1_pubkey epk;
+    secp256k1_generator hk = *secp256k1_generator_h;
+    secp256k1_generator_as_key(&hk, &epk);
+    secp256k1_ec_pubkey_tweak_mul(ctx, &epk, esk);
+
+    unsigned char out_epk [33] = { 0 };
+    size_t len = 33;
+    secp256k1_ec_pubkey_serialize(ctx, out_epk, &len, &epk, SECP256K1_EC_COMPRESSED);
+
+    secp256k1_keypair output_kp;
+    secp256k1_keypair_create(ctx, &output_kp, esk);
+
+    secp256k1_pubkey epk_check;
+    secp256k1_keypair_pub(ctx, &epk_check, &output_kp);
+
+    unsigned char out_epkcheck [33] = { 0 };
+    len = 33;
+    secp256k1_ec_pubkey_serialize(ctx, out_epkcheck, &len, &epk_check, SECP256K1_EC_COMPRESSED);
+
+    for(size_t i = 0; i < 33; ++i) {
+        assert(out_epk[i] == out_epkcheck[i]);
+    }
 }
 
 void

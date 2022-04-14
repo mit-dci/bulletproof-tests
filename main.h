@@ -10,6 +10,7 @@
 #include <assert.h>
 
 #include "secp256k1.h"
+#include "secp256k1_extrakeys.h"
 #include "secp256k1_bulletproofs.h"
 
 signed
@@ -26,5 +27,8 @@ verify (secp256k1_context *, secp256k1_pedersen_commitment *, unsigned char *, s
 
 void
 proof_roundtrip (secp256k1_context *);
+
+void
+keyderivation_doublecheck (secp256k1_context *);
 
 #endif

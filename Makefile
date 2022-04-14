@@ -1,13 +1,13 @@
 INCDIR = secp256k1-zkp/include
 LIBDIR = secp256k1-zkp/.libs
-CFLAGS = -O0 -ggdb -g 
+CFLAGS = -Og -ggdb -g 
 LDFLAGS = -L $(LIBDIR) -I $(INCDIR) -lsecp256k1
 
-SECPCONFFLAGS = --enable-module-bulletproofs --enable-experimental --enable-module-generator
+SECPCONFFLAGS = --enable-module-bulletproofs --enable-experimental --enable-module-generator --enable-module-extrakeys --enable-module-recovery
 
 RM = rm -rf --
 
-.PHONY: all run lib clean
+.PHONY: all run lib clean debug
 
 all: run
 
@@ -24,13 +24,16 @@ lib: secp256k1-zkp
 		make -j \
 	)
 
-clean:
-	$(RM) bin
-
 bin: main.c
 	gcc $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
+clean:
+	$(RM) bin
+
+debug: bin
+	LD_LIBRARY_PATH=$(LIBDIR) gdb --tui ./$<
+
 run: bin lib
-	LD_LIBRARY_PATH=$(LIBDIR) ./$^
+	LD_LIBRARY_PATH=$(LIBDIR) ./$<
 
 $(V).SILENT:
