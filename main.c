@@ -5,6 +5,7 @@ main (void) {
 
     secp256k1_context * ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
 
+    proof_roundtrip(ctx);
     keyderivation_doublecheck(ctx);
 
     cleanup:
@@ -13,41 +14,75 @@ main (void) {
 
 void
 keyderivation_doublecheck (secp256k1_context * ctx) {
+
+    unsigned char r [32] = { 0 };
+    randombytes(r, sizeof r);
+
+    unsigned long someval = randomnumber() % UINT_MAX;
+
+    signed ret;
+    secp256k1_pedersen_commitment com;
+    ret = secp256k1_pedersen_commit(ctx, &com, r, someval, secp256k1_generator_h);
+    assert(ret);
+
     unsigned char rprime [32] = { 0 };
     randombytes(rprime, sizeof rprime);
 
-    unsigned char esk [32] = { 0 };
-    randombytes(esk, sizeof esk);
+    secp256k1_pedersen_commitment aux;
+    ret = secp256k1_pedersen_commit(ctx, &aux, rprime, someval, secp256k1_generator_h);
+    assert(ret);
 
-    secp256k1_ec_seckey_negate(ctx, rprime);
-    secp256k1_ec_seckey_tweak_add(ctx, esk, rprime);
+    ret = secp256k1_ec_seckey_negate(ctx, rprime);
+    assert(ret);
+    ret = secp256k1_ec_seckey_tweak_add(ctx, r, rprime); // r -= rprime
+    assert(ret);
+
+    secp256k1_keypair kp;
+    ret = secp256k1_keypair_create(ctx, &kp, r);
+    assert(ret);
 
     secp256k1_pubkey epk;
-    secp256k1_generator hk = *secp256k1_generator_h;
-    secp256k1_generator_as_key(&hk, &epk);
-    secp256k1_ec_pubkey_tweak_mul(ctx, &epk, esk);
+    ret = secp256k1_keypair_pub(ctx, &epk, &kp);
+    assert(ret);
+
+    printf("automatically-derived key from secret\n");
 
     unsigned char out_epk [33] = { 0 };
     size_t len = 33;
-    secp256k1_ec_pubkey_serialize(ctx, out_epk, &len, &epk, SECP256K1_EC_COMPRESSED);
+    ret = secp256k1_ec_pubkey_serialize(ctx, out_epk, &len, &epk, SECP256K1_EC_COMPRESSED);
+    assert(ret);
 
-    secp256k1_keypair output_kp;
-    secp256k1_keypair_create(ctx, &output_kp, esk);
+    secp256k1_pubkey pk [2];
+    secp256k1_pedersen_commitment_as_key(&com, &pk[0]);
+    secp256k1_pedersen_commitment_as_key(&aux, &pk[1]);
+    ret = secp256k1_ec_pubkey_negate(ctx, &pk[1]);
+    assert(ret);
+
+    const secp256k1_pubkey * pks [2];
+    pks[0] = &pk[0];
+    pks[1] = &pk[1];
 
     secp256k1_pubkey epk_check;
-    secp256k1_keypair_pub(ctx, &epk_check, &output_kp);
+    ret = secp256k1_ec_pubkey_combine(ctx, &epk_check, pks, 2);
+    assert(ret);
+
+    printf("manually-derived key from commitments\n");
 
     unsigned char out_epkcheck [33] = { 0 };
     len = 33;
-    secp256k1_ec_pubkey_serialize(ctx, out_epkcheck, &len, &epk_check, SECP256K1_EC_COMPRESSED);
+    ret = secp256k1_ec_pubkey_serialize(ctx, out_epkcheck, &len, &epk_check, SECP256K1_EC_COMPRESSED);
+    assert(ret);
 
     for(size_t i = 0; i < 33; ++i) {
         assert(out_epk[i] == out_epkcheck[i]);
     }
+
+    printf("manually- and automatically-drived keys match!\n");
 }
 
 void
 proof_roundtrip (secp256k1_context * ctx) {
+
     unsigned char proof [SECP256K1_BULLETPROOFS_RANGEPROOF_UNCOMPRESSED_MAX_LENGTH_];
     size_t prooflen = SECP256K1_BULLETPROOFS_RANGEPROOF_UNCOMPRESSED_MAX_LENGTH_;
 
