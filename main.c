@@ -47,11 +47,6 @@ keyderivation_doublecheck (secp256k1_context * ctx) {
 
     printf("automatically-derived key from secret\n");
 
-    unsigned char out_epk [33] = { 0 };
-    size_t len = 33;
-    ret = secp256k1_ec_pubkey_serialize(ctx, out_epk, &len, &epk, SECP256K1_EC_COMPRESSED);
-    assert(ret);
-
     secp256k1_pubkey pk [2];
     secp256k1_pedersen_commitment_as_key(&com, &pk[0]);
     secp256k1_pedersen_commitment_as_key(&aux, &pk[1]);
@@ -67,6 +62,11 @@ keyderivation_doublecheck (secp256k1_context * ctx) {
     assert(ret);
 
     printf("manually-derived key from commitments\n");
+
+    unsigned char out_epk [33] = { 0 };
+    size_t len = 33;
+    ret = secp256k1_ec_pubkey_serialize(ctx, out_epk, &len, &epk, SECP256K1_EC_COMPRESSED);
+    assert(ret);
 
     unsigned char out_epkcheck [33] = { 0 };
     len = 33;
