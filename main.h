@@ -24,4 +24,7 @@ prove (secp256k1_context *, unsigned long, secp256k1_pedersen_commitment *, unsi
 signed
 verify (secp256k1_context *, secp256k1_pedersen_commitment *, unsigned char *, size_t);
 
+void
+proof_roundtrip (secp256k1_context *);
+
 #endif

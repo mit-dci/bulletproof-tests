@@ -4,6 +4,13 @@ signed
 main (void) {
 
     secp256k1_context * ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+    proof_roundtrip(ctx);
+    cleanup:
+        secp256k1_context_destroy(ctx);
+}
+
+void
+proof_roundtrip (secp256k1_context * ctx) {
     unsigned char proof [SECP256K1_BULLETPROOFS_RANGEPROOF_UNCOMPRESSED_MAX_LENGTH_];
     size_t prooflen = SECP256K1_BULLETPROOFS_RANGEPROOF_UNCOMPRESSED_MAX_LENGTH_;
 
@@ -25,9 +32,7 @@ main (void) {
     }
 
     printf("verified!\n");
-
-    cleanup:
-        secp256k1_context_destroy(ctx);
+    cleanup:;
 }
 
 signed
